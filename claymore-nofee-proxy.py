@@ -27,7 +27,6 @@ class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 # modify any requests destined for the remote host
 def remove_devfee(data):
-    global wallet, worker_name
     data = bytes.decode(data)
     #If it is an Auth packet
     if ('submitLogin' in data) or ('eth_login' in data):
@@ -66,7 +65,6 @@ class StratumProxy(socketserver.StreamRequestHandler):
 
     def handle(self):
         try:
-            global pool_address, pool_port
             sock = self.connection
             lock_print('New Connection: {}'.format(sock.getpeername()))
             remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
