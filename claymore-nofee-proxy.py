@@ -10,7 +10,7 @@ from collections import OrderedDict
 pool_address = 'fakepool'
 pool_port = 9999
 wallet='0xfakeaddress'
-worker_name='devfee'
+worker_name='/devfee'
 
 my_lock = threading.Lock()
 
@@ -92,22 +92,6 @@ def main():
     global wallet 
     wallet = sys.argv[4]
     
-    global worker_name
-    
-    #Uncomment if you meet issue with pool or worker name - This will disable the worker name
-    #worker_name = ''
-    pool_slash = ['nanopool.org','dwarfpool.com']
-    pool_dot = ['ethpool.org','ethermine.org','alpereum.ch']
-    if worker_name:
-        if any(s in pool_address for s in pool_slash):
-            worker_name = '/' + worker_name
-        elif any(d in pool_address for d in pool_dot):
-            worker_name = '.' + worker_name
-        else:
-            #No worker name for compatbility reason
-            lock_print("Unknown pool - Worker name is empty")
-            worker_name = ''
-
     lock_print("Wallet set: " + wallet + worker_name)
 
     lock_print('Starting stratum proxy at port %d' % local_port)
