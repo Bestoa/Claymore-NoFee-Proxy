@@ -26,8 +26,14 @@ class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 # modify any requests destined for the remote host
-def remove_devfee(data):
-    data = bytes.decode(data)
+def remove_devfee(raw_data):
+    data = None
+    try:
+        data = bytes.decode(raw_data)
+    except:
+        lock_print('Unable to decode data: {}'.format(raw_data))
+    if data == None:
+        return raw_data
     #If it is an Auth packet
     if ('submitLogin' in data) or ('eth_login' in data):
         json_data = json.loads(data, object_pairs_hook=OrderedDict)
