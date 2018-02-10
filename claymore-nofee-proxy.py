@@ -10,7 +10,7 @@ from collections import OrderedDict
 pool_address = 'fakepool'
 pool_port = 9999
 wallet='0xfakeaddress'
-worker_name='/devfee'
+worker_name=''
 
 my_lock = threading.Lock()
 
