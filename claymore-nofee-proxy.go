@@ -4,6 +4,7 @@ import(
     "fmt"
     "net"
     "strings"
+    "sync/atomic"
     "encoding/json"
 )
 
@@ -11,6 +12,8 @@ var lock_account = ""
 var local_port = ""
 var remote_address = ""
 var remote_port = ""
+
+var conn_num int32 = 0
 
 func main() {
     if len(os.Args) < 5 {
@@ -31,6 +34,7 @@ func main() {
         return
     }
     fmt.Println("Start proxy at port:", local_port)
+    // Loop forever
     for {
         c, err := l.Accept()
         if err != nil {
@@ -45,9 +49,12 @@ func create_proxy(client net.Conn) {
     server, err := net.Dial("tcp", remote_address + ":" + remote_port)
     if err != nil {
         fmt.Println("Connect to pool error:", err)
+        // Don't forget to close the exist socket
+        client.Close()
         return
     }
-    fmt.Println("New connection:", client.RemoteAddr())
+    atomic.AddInt32(&conn_num, 1)
+    fmt.Println("New connection:", client.RemoteAddr(), " Connection number:", atomic.LoadInt32(&conn_num))
     go handle_conn(client, server, true)
     go handle_conn(server, client, false)
 }
@@ -58,21 +65,29 @@ func handle_conn(c1, c2 net.Conn, local2server bool) {
     defer c2.Close()
     defer c1.Close()
     if local2server {
+        // Don't forget to reduce connection number
+        defer atomic.AddInt32(&conn_num, -1);
         defer fmt.Println("Close connection:", c1.RemoteAddr())
     }
     for {
         data_len, err := c1.Read(buf)
         data := buf
         if err != nil {
+            // Reduce error log, this case should be client close the socket
+            if  err_str := err.Error(); strings.Contains(err_str, "EOF") || strings.Contains(err_str, "use of closed network connection") {
+                return
+            }
             fmt.Println("Read error:", err)
             return
         }
         if local2server {
             err = json.Unmarshal(buf[:data_len], &map_result)
             if err != nil {
+                // Garbage data, not from claymore
                 fmt.Println("Decode error:", err)
                 return
             }
+            // Submit eth address
             if v, ok := map_result["method"]; ok && v == "eth_submitLogin" {
                 auth_count := map_result["params"].([]interface{})[0].(string)
                 fmt.Println("[*]Auth account:", auth_count)
