@@ -2,6 +2,7 @@ package main
 import(
     "os"
     "fmt"
+    "log"
     "net"
     "strings"
     "sync/atomic"
@@ -26,20 +27,19 @@ func main() {
     remote_port = os.Args[3]
     lock_account = os.Args[4]
 
-    fmt.Println("Wallet set:", lock_account)
+    log.Println("Wallet set:", lock_account)
 
     l, err := net.Listen("tcp", ":" + local_port)
     if err != nil {
-        fmt.Println("Listen error:", err)
-        return
+        log.Fatal("Listen error:", err)
     }
-    fmt.Println("Start proxy at port:", local_port)
+    log.Println("Start proxy at port:", local_port)
     // Loop forever
     for {
         c, err := l.Accept()
         if err != nil {
-            fmt.Println("Accept error:", err)
-            return
+            log.Println("Accept error:", err)
+            continue
         }
         create_proxy(c)
     }
@@ -48,13 +48,13 @@ func main() {
 func create_proxy(client net.Conn) {
     server, err := net.Dial("tcp", remote_address + ":" + remote_port)
     if err != nil {
-        fmt.Println("Connect to pool error:", err)
-        // Don't forget to close the exist socket
+        log.Println("Connect to pool error:", err)
+        // Close the exist socket
         client.Close()
         return
     }
     atomic.AddInt32(&conn_num, 1)
-    fmt.Println("New connection:", client.RemoteAddr(), " Connection number:", atomic.LoadInt32(&conn_num))
+    log.Println("New connection:", client.RemoteAddr(), " Connection number:", atomic.LoadInt32(&conn_num))
     go handle_conn(client, server, true)
     go handle_conn(server, client, false)
 }
@@ -65,9 +65,9 @@ func handle_conn(c1, c2 net.Conn, local2server bool) {
     defer c2.Close()
     defer c1.Close()
     if local2server {
-        // Don't forget to reduce connection number
+        // Reduce connection number
         defer atomic.AddInt32(&conn_num, -1);
-        defer fmt.Println("Close connection:", c1.RemoteAddr())
+        defer log.Println("Close connection:", c1.RemoteAddr())
     }
     for {
         data_len, err := c1.Read(buf)
@@ -77,24 +77,24 @@ func handle_conn(c1, c2 net.Conn, local2server bool) {
             if  err_str := err.Error(); strings.Contains(err_str, "EOF") || strings.Contains(err_str, "use of closed network connection") {
                 return
             }
-            fmt.Println("Read error:", err)
+            log.Println("Read error:", err)
             return
         }
         if local2server {
             err = json.Unmarshal(buf[:data_len], &map_result)
             if err != nil {
                 // Garbage data, not from claymore
-                fmt.Println("Decode error:", err)
+                log.Println("Decode error:", err)
                 return
             }
             // Submit eth address
             if v, ok := map_result["method"]; ok && v == "eth_submitLogin" {
                 auth_count := map_result["params"].([]interface{})[0].(string)
-                fmt.Println("[*]Auth account:", auth_count)
+                log.Println("[*]Auth account:", auth_count)
                 if auth_count != lock_account {
-                    fmt.Println("[-]Devfee detected")
-                    fmt.Println("[*]OLD", auth_count)
-                    fmt.Println("[*]NEW", lock_account)
+                    log.Println("[-]Devfee detected")
+                    log.Println("[+]OLD", auth_count)
+                    log.Println("[+]NEW", lock_account)
                     buf_str := string(buf[:data_len])
                     data = []byte(strings.Replace(buf_str, auth_count, lock_account, 1))
                     data_len = len(data)
@@ -103,7 +103,7 @@ func handle_conn(c1, c2 net.Conn, local2server bool) {
         }
         _, err = c2.Write(data[:data_len])
         if err != nil {
-            fmt.Println("Write error:", err)
+            log.Println("Write error:", err)
             return
         }
     }
